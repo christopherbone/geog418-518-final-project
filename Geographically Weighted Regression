@@ -1,0 +1,45 @@
+####Geographically Weighted Regression
+#The first thing you need to do is to add the polygon coordinates to the spatialpolygondataframe.
+#You can obtain the coordinates using the "coordinates" function from the sp library
+pm.income.poly.coords <- sp::coordinates(pm.income.poly)
+#Observe the result
+head(pm.income.poly.coords)
+#Now add the coordinates back to the spatialpolygondataframe
+pm.income.poly$X <- pm.income.poly.coords[,1]
+pm.income.poly$Y <- pm.income.poly.coords[,2]
+head(pm.income.poly)
+
+###Determine the bandwidth for GWR: this will take a while
+GWRbandwidth <- gwr.sel(pm.income.poly$Income~pm.income.poly$PM25, 
+                       data=pm.income, coords=cbind(pm.income.poly$X,pm.income.poly$Y),adapt=T) 
+
+###Perform GWR on the two variables with the bandwidth determined above
+###This will take a looooooong while
+gwr.model = gwr(pm.income.poly$Income~pm.income.poly$PM25, 
+                data=pm.income.poly, coords=cbind(pm.income.poly$X,pm.income.poly$Y), 
+                adapt=GWRbandwidth, hatmatrix=TRUE, se.fit=TRUE) 
+
+#Print the results of the model
+gwr.model
+
+#Look at the results in detail
+results<-as.data.frame(gwr.model$SDF)
+head(results)
+
+#Now for the magic. Let's add our local r-square values to the map
+pm.income.poly$localr <- results$localR2
+
+#Create choropleth map of r-square values
+local.r.square <- pm.income.poly$localr
+shades <- auto.shading(local.r.square, n=6, cols = brewer.pal(6, 'Oranges'))
+choropleth(income.tracts, local.r.square, shades) #map the data with associated colours
+choro.legend(3864000, 1965000, shades) #add a legend (you might need to change the location)
+
+#Time for more magic. Let's map the coefficients
+pm.income.poly$coeff <- results$pm.income.poly.PM25
+
+#Create choropleth map of the coefficients
+local.coefficient <- pm.income.poly$coeff
+shades <- auto.shading(local.coefficient, n=6, cols = brewer.pal(6, 'Oranges'))
+choropleth(income.tracts, local.coefficient, shades) #map the data with associated colours
+choro.legend(3864000, 1965000, shades) #add a legend (you might need to change the location)
